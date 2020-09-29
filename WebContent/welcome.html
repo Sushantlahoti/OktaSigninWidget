@@ -1,0 +1,326 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Example Okta Sign-In Widget & OIDC Response</title>
+	<script src="https://ok1static.oktacdn.com/assets/js/sdk/okta-signin-widget/1.7.0/js/okta-sign-in.min.js" type="text/javascript"></script>
+    <link href="https://ok1static.oktacdn.com/assets/js/sdk/okta-signin-widget/1.7.0/css/okta-sign-in.min.css" type="text/css" rel="stylesheet">
+    <link href="https://ok1static.oktacdn.com/assets/js/sdk/okta-signin-widget/1.7.0/css/okta-theme.css" type="text/css" rel="stylesheet">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/bluebird/3.3.4/bluebird.min.js"></script>
+	<!-- Library to decode JWT Tokens -->
+	<script src="https://unpkg.com/jwt-js-decode@1.3.7/dist/jwt-js-decode.min.js" type="text/javascript"></script>
+</head>
+
+<body onload = "showMe()">
+	<H1>OIDC Response Page:</H1>
+	<div id ="result"></div>
+  	<form>
+			
+            <input id="btnShowSession" type="button" value="Show Session" onclick="showMe()"></input>
+			<input id="btnLogout" type="button" value="Logout" onclick="logOut()"></input>
+			<input id="btnLogin" type="button" value="Login" onclick="loginMe()"></input>
+			<input id="btnValidateToken" type="button" value="Validate Session" onclick="validateSessionExpiry()"></input>
+			<input id="btnIntrospect" type="button" value="Introspect" onclick="introspect()"></input>
+			<input id='btnCallGroupPush' type="button" value="callGroup" onclick="callGroupPush()"></input>
+    </form>
+			
+ 
+	<script type="text/javascript" language="javascript">
+		var baseURL = 'https://dev-497881.oktapreview.com'
+		
+		function validateToken(){
+			try
+			{
+				var ID_Token = getCookie("IDP_Session");
+				  if (ID_Token != "") {
+				  var jwt = jwtJsDecode.jwtDecode(ID_Token);
+					console.log('Printing jwt value below...');
+					console.log(jwt);			  
+					var current_time = new Date().getTime() / 1000;
+						if (current_time > jwt.payload.exp) {
+							window.location.href = 'http://localhost:8080/OktaSigninWidget/welcome.html';
+						}
+						else{
+							alert('User has a valid Token');
+						}
+				  } else {
+				  window.location.href = 'http://localhost:8080/OktaSigninWidget/welcome.html';					
+				  }
+				
+			}
+			catch (err) {
+				console.log(err);
+				return false;
+			}
+		}
+		
+		function validateSessionExpiry(){
+			try
+			{
+				var expAt = getCookie("IDP_SessionID");
+				  if (expAt != "") {
+				  
+					console.log('Printing expAt value below...');
+					console.log(expAt.expires);			  
+					var current_time = new Date().toUTCString();
+					console.log('Current Time is :' + current_time);	
+					alert(current_time);
+						if (current_time > expAt.expires) {
+							//window.location.href = 'http://localhost:8080/oidc_flow.html';
+							alert('Session Expired');
+						}
+						else{
+							alert('Session is Valid');
+						}
+				  } else {
+				  //window.location.href = 'http://localhost:8080/oidc_flow.html';					
+				  }
+				
+			}
+			catch (err) {
+				console.log(err);
+				return false;
+			}
+		}
+		
+		function getCookie(cname) {
+		  var name = cname + "=";
+		  var ca = document.cookie.split(';');
+		  for(var i = 0; i < ca.length; i++) {
+			var c = ca[i];
+			while (c.charAt(0) == ' ') {
+			  c = c.substring(1);
+			}
+			if (c.indexOf(name) == 0) {
+			  return c.substring(name.length, c.length);
+			}
+		  }
+		  return "";
+		}
+
+		/*function showSession(){
+			try
+			{
+				console.log('Calling Show Session');
+				var jwtToken = localStorage.getItem("id_token") ;
+				var jwtDecoded;
+				
+				if (jwtToken!=null)
+				{
+					jwtDecoded = parseJwt(jwtToken) ;
+				}
+				else
+				{
+					console.log('User is not logged in. Click Login');
+					document.getElementById("result").innerHTML = 'User is not logged in.';
+				}
+				
+				if(jwtDecoded!=false)
+				{
+					console.log('Writing id_token to console...');
+					console.log(jwtDecoded);
+					document.getElementById("result").innerHTML = JSON.stringify(jwtDecoded);
+				}
+				
+				
+				return false;
+		}
+			catch (err) {
+				console.log(err);
+				return false;
+			}
+		}*/
+		
+		function logOut(){
+			try
+			{
+				//Read the id_token from the localStorage
+				var jwtToken = localStorage.getItem("id_token") ;
+				
+				if (jwtToken!=null)
+				{
+					var jwtDecoded = localStorage.getItem("id_token");
+					//Remove the id_token from the localStorage, if needed
+					localStorage.removeItem("id_token");
+					//***document.cookie = "IDP_Session=INACTIVE;id='';expires=Thu, 01 Jan 1970 00:00:00 UTC" ;
+					
+					document.cookie = "IDP_SessionID='';expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+					document.cookie = "IDP_expiresAt='';expires=Thu, 01 Jan 1970 00:00:01 GMT;"; 
+					//Perform a GET call to /logout endpoint to end the session associated with the id_token.
+					window.location.href="https://dev-497881.oktapreview.com/oauth2/v1/logout?id_token_hint=" + jwtDecoded + "&post_logout_redirect_uri=http://localhost:8080/oidc_response.html&state=2345";
+					return;
+				}
+				else
+				{
+					//console.log('No user session found.No need to logout.');
+					document.getElementById("result").innerHTML = 'No user session found.No need to logout.';
+					return false;
+				}
+				
+			}
+			catch (err) {
+				console.log(err);
+				return false;
+			}
+		}
+		
+		function loginMe(){
+			try
+			{
+				//console.log('Calling Show Me');
+				var xhr = new XMLHttpRequest();
+				xhr.withCredentials = true;
+				xhr.open("GET", "https://dev-497881.oktapreview.com/api/v1/sessions/me",false);
+				xhr.setRequestHeader("accept", "application/json");			
+				xhr.send(null);
+				if (xhr.readyState ===4)
+				{
+					
+					if(xhr.status == "200"){
+						var exp=JSON.parse(xhr.responseText);
+						//document.cookie="IDP_SessionID=" + exp.id;
+						//document.cookie="IDP_expiresAt=" + exp.expiresAt;
+						document.getElementById("result").innerHTML='/api/v1/sessions/me call : Session already exists. Session details :' + xhr.responseText;	
+					}
+					if(xhr.status == "404")
+					{
+						//document.getElementById("result").innerHTML= '404 not found. Session does not exist or is Invalid.';
+						//window.location="http://localhost:8080/login.html?redirectURL=http://localhost:8081/session.html";
+						window.location.href="http://localhost:8080/oidc_flow.html?fromURI=OKTA%3FURL%3Dhttp://localhost:8080/oidc_response.html";
+					}
+					return;
+				}	
+				
+			}
+			catch (err) {
+				console.log(err);
+				return false;
+			}
+		}
+	
+		function showMe(){
+			try
+			{
+				//console.log('Calling Show Me');
+				
+				var xhr = new XMLHttpRequest();
+				xhr.withCredentials = true;
+				xhr.open("GET", "https://dev-497881.oktapreview.com/api/v1/sessions/me",false);
+				xhr.setRequestHeader("accept", "application/json");		
+				//xhr.setRequestHeader("Content-Type", "application/json");	
+				//xhr.setRequestHeader("Cookie", "application/json");
+				//xhr.setRequestHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2490.86 Safari/537.36");	
+				xhr.send(null);
+				if (xhr.readyState ===4)
+				{
+				
+					if(xhr.status == "200"){
+						var exp=JSON.parse(xhr.responseText);
+						//var jwt = jwtJsDecode.jwtDecode(ID_Token);
+						
+						var expAt= new Date(exp.expiresAt).toUTCString();
+						
+						document.cookie="IDP_SessionID=" + exp.id + ";expires=" + expAt ;
+						//2016-01-03T07:02:00.000Z
+						//2019-02-14 14:52:09.000
+						//document.getElementById("result").innerHTML='/api/v1/sessions/me call :' + xhr.responseText;
+						console.log("IDP_SessionID=" + exp.id + ";IDP_expiresAt=" + exp.expiresAt + ";IDP_createdAt=" + exp.createdAt + ";IDP_UserID=" + exp.userId);						
+						document.getElementById("result").innerHTML='The session expires at '  + exp.expiresAt;
+						
+					}		
+					else if(xhr.status == "404")
+					{
+						document.getElementById("result").innerHTML= '/api/v1/sessions/me call :404 not found. Session does not exist or is Invalid.';
+						//window.location="http://localhost:8080/login.html?redirectURL=http://localhost:8081/session.html";
+					}
+					else
+					{
+						document.getElementById("result").innerHTML='/api/v1/sessions/me call : Something went wrong : ' + xhr.responseText;
+						//window.location="http://localhost:8080/login.html?redirectURL=http://localhost:8081/session.html";
+					}
+					return;
+					
+				}
+				
+				/* var settings = {
+				  "async": true,
+				  "crossDomain": true,
+				  "url": "https://dev-302024.oktapreview.com/api/v1/sessions/me",
+				  "method": "GET",
+				  "headers": {
+					"Accept": "application/json",
+					"Content-Type": "application/json",
+					"cache-control": "no-cache"
+				  },
+				  "processData": false,
+				  "data": ""
+				}
+
+				$.ajax(settings).done(function (response) {
+				  console.log(response);
+				  alert(response);
+				}); */
+				
+			}
+				catch (err) {
+					console.log(err);
+					return false;
+				} 
+		}
+		
+		//This function takes a base 64 url encoded string, and converts it to a JSON object... using a few steps.
+		function parseJwt(token) {
+		  try {
+			// Get Token Header
+			const base64HeaderUrl = token.split('.')[0];
+			const base64Header = base64HeaderUrl.replace('-', '+').replace('_', '/');
+			const headerData = JSON.parse(window.atob(base64Header));
+
+			// Get Token payload and date's
+			const base64Url = token.split('.')[1];
+			const base64 = base64Url.replace('-', '+').replace('_', '/');
+			const dataJWT = JSON.parse(window.atob(base64));
+			dataJWT.header = headerData;
+
+		// TODO: add expiration at check ...
+			return dataJWT;
+		  } catch (err) {
+			console.log(err);
+			return false;
+		  }
+		}
+		
+		function callGroupPush(){
+			/**************************************/
+			var settings = {
+							"url" : "https://dev-497881-admin.oktapreview.com/api/internal/instance/0oakqlzdcnlxyWh5W0h7/grouppush",
+							"method" : "POST",
+							"timeout" : 0,
+							"headers" : {
+								"Content-Type" : "application/json",
+								"x-okta-xsrftoken" : "d6d064386c6723840d52f894f1d3bff93729348aceda2609656efa570bafedf1",
+								"x-requested-with" : "XMLHttpRequest",
+								"Access-Control-Allow-Origin" : "*,"
+								
+							},
+							"data" : JSON.stringify({
+								"status" : "ACTIVE",
+								"userGroupId" : "00glydklv7GPX16X60h7"
+							}),
+							async : true,
+						    //very important: else php_data will be returned even before we get Json from the url
+						    dataType: 'json',
+						    crossDomain : true
+						};
+
+						$.ajax(settings).done(function(response) {
+							console.log(response);
+						});
+			/***************************************/
+		}
+    </script>    
+</body>
+</html>
